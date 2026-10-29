@@ -5,6 +5,8 @@ const Models := preload("res://scripts/models.gd")
 const TM := preload("res://scripts/toon_mesh.gd")
 const TOON := preload("res://shaders/toon.gdshader")
 const OUTLINE := preload("res://shaders/outline.gdshader")
+# bundled so Chinese text also renders in the browser, where system fonts are unavailable
+const UI_FONT := preload("res://fonts/NotoSansTC-VF.ttf")
 
 const GRID := 8
 const SAVE_PATH := "user://room.json"
@@ -84,7 +86,7 @@ func _setup_world() -> void:
 	env.ssao_radius = 0.7
 	env.ssao_intensity = 1.8
 	env.ssao_light_affect = 0.55
-	env.glow_enabled = true
+	env.glow_enabled = not lite_renderer()   # the web renderer's glow smears the whole frame
 	env.glow_intensity = 0.45
 	env.glow_bloom = 0.03
 	env.glow_hdr_threshold = 1.0
@@ -105,7 +107,7 @@ func _setup_world() -> void:
 	add_child(window_light)
 	window_light.look_at_from_position(Vector3(1.5, 2.7, -3.7), Vector3(2.3, 0, -0.9))
 	window_light.light_color = Color("#FFD59A")
-	window_light.light_energy = 1.2
+	window_light.light_energy = 0.35 if lite_renderer() else 1.2
 	window_light.spot_range = 6.0
 	window_light.spot_angle = 30.0
 	window_light.spot_attenuation = 0.6
@@ -176,6 +178,11 @@ func _add_dust() -> void:
 	dust.mesh = speck
 	dust.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(dust)
+
+
+## True for the Compatibility renderer (web build): no SSAO or DOF, and spot/omni lights hit much harder.
+func lite_renderer() -> bool:
+	return RenderingServer.get_current_rendering_method() == "gl_compatibility"
 
 
 func _spawn(mesh: Mesh, mat: Material = null) -> MeshInstance3D:
@@ -262,10 +269,10 @@ func _setup_ui() -> void:
 	col.add_child(reset)
 
 
-func _font(weight := 400) -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Noto Sans TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "PingFang TC", "sans-serif"])
-	f.font_weight = weight
+func _font(weight := 400) -> FontVariation:
+	var f := FontVariation.new()
+	f.base_font = UI_FONT
+	f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
 	return f
 
 
@@ -402,7 +409,7 @@ func new_item(type: String, cell: Vector2i, rot: int) -> Dictionary:
 		var glow := OmniLight3D.new()
 		glow.position = Vector3(0, 1.3, 0)
 		glow.light_color = Color("#FFCF8A")
-		glow.light_energy = 0.55
+		glow.light_energy = 0.18 if lite_renderer() else 0.55
 		glow.omni_range = 2.2
 		node.add_child(glow)
 	var it := {"type": type, "cell": cell, "rot": rot, "node": node}
